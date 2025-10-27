@@ -52,8 +52,8 @@ To deploy this worker, you'll need to have the [Wrangler CLI](https://developers
 
 API documentation is available via OpenAPI at the following endpoints:
 
-- `/openapi.json`
-- `/openapi.yaml`
+-   `/openapi.json`
+-   `/openapi.yaml`
 
 You can also view the documentation using Swagger UI at `/doc`.
 
