@@ -37,6 +37,9 @@ export const etagCache = (): MiddlewareHandler<{ Bindings: Bindings }> => {
     const etag = c.res.headers.get('etag')
     if (etag) {
       await c.env.ETAG_KV.put(cacheKey, etag)
+    } else {
+      // If the response doesn't have an ETag, delete the cached entry
+      await c.env.ETAG_KV.delete(cacheKey)
     }
   }
 }

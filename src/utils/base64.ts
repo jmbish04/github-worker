@@ -17,8 +17,8 @@ export const encode = (str: string): string => {
     return btoa(unescape(encodeURIComponent(str)));
   } catch (e) {
     console.error('Failed to base64 encode string:', e);
-    // Fallback for safety, though it may be incorrect for unicode.
-    return btoa(str);
+    // Re-throw the error to prevent incorrect encoding from being used.
+    throw e;
   }
 }
 

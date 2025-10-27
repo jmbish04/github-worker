@@ -17,10 +17,12 @@ import toolsApi from './tools'
 // Logging middleware
 app.use('*', async (c, next) => {
   const startTime = Date.now()
-  const correlationId = crypto.randomUUID()
-  c.res.headers.set('X-Correlation-ID', correlationId)
+  const correlationId = c.req.header('X-Correlation-ID') || crypto.randomUUID()
+  c.req.headers.set('X-Correlation-ID', correlationId)
 
   await next()
+
+  c.res.headers.set('X-Correlation-ID', correlationId)
 
   const endTime = Date.now()
   const latency = endTime - startTime
