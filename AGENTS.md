@@ -1,3 +1,5 @@
+## 📘 `AGENTS.md`
+
 # 🤖 Agent Architecture — Cloudflare Worker GitHub Proxy
 
 This document defines the modular agent framework for building, maintaining, and extending the **Cloudflare Worker GitHub Proxy**.  
@@ -130,3 +132,10 @@ C --> D[WorkflowAgent]
 D --> E[LinterAgent]
 E --> F[TesterAgent]
 F --> G[ExtenderAgent]
+````
+
+---
+
+**Version:** 1.0
+**Maintainers:** Colby Systems / Justin M. Bishop
+**License:** Internal DevOps Proxy Blueprint
