@@ -1,11 +1,14 @@
-name = "github-proxy"
+name = "cloudflare-worker-github-proxy"
 main = "src/index.ts"
-compatibility_date = "2025-10-27"
+compatibility_date = "2023-07-01"
 
 [vars]
-GITHUB_API_BASE = "https://api.github.com"
-GITHUB_GRAPHQL = "https://api.github.com/graphql"
+LOG_LEVEL = "info"
+
+# [secrets]
+# GITHUB_TOKEN
 
 [[kv_namespaces]]
 binding = "ETAG_KV"
-id = "dummy-kv-id"
+id = "dummy_id_for_local_dev"
+preview_id = "dummy_id_for_local_dev"
