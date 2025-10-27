@@ -18,6 +18,7 @@ import toolsApi from './tools'
 app.use('*', async (c, next) => {
   const startTime = Date.now()
   const correlationId = c.req.header('X-Correlation-ID') || crypto.randomUUID()
+  c.set('correlationId', correlationId)
 
   await next()
 
