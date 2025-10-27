@@ -1,6 +1,9 @@
-name = "cloudflare-worker-github-proxy"
+name = "core-github-api"
 main = "src/index.ts"
 compatibility_date = "2023-07-01"
+
+[observability]
+enabled = true
 
 [vars]
 LOG_LEVEL = "info"
@@ -10,5 +13,5 @@ LOG_LEVEL = "info"
 
 [[kv_namespaces]]
 binding = "ETAG_KV"
-id = "dummy_id_for_local_dev"
-preview_id = "dummy_id_for_local_dev"
+id = "eed6ba4656704616acf168be80ba770a"
+preview_id = "cfc441ebd1d8492497f49e88ae98aa2f"
