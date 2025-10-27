@@ -1,0 +1,11 @@
+name = "github-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-10-27"
+
+[vars]
+GITHUB_API_BASE = "https://api.github.com"
+GITHUB_GRAPHQL = "https://api.github.com/graphql"
+
+[[kv_namespaces]]
+binding = "ETAG_KV"
+id = "dummy-kv-id"
