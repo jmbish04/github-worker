@@ -5,6 +5,7 @@
  */
 
 import { OpenAPIHono } from '@hono/zod-openapi'
+import type { D1Database } from '@cloudflare/workers-types'
 import { v4 as uuidv4 } from 'uuid'
 
 // Define the Bindings for the Cloudflare Worker
@@ -12,6 +13,8 @@ export type Bindings = {
   GITHUB_TOKEN: string
   LOG_LEVEL: string
   ETAG_KV: KVNamespace
+  WORKER_API_KEY: string
+  CORE_GITHUB_API: D1Database
 }
 
 // Create a new OpenAPIHono app with the defined Bindings
