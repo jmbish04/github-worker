@@ -5,6 +5,7 @@
 */
 
 import { OpenAPIHono } from '@hono/zod-openapi'
+import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 import { app, Bindings } from './utils/hono'
 
@@ -25,22 +26,93 @@ app.use('*', async (c, next) => {
   c.res.headers.set('X-Correlation-ID', correlationId)
   const endTime = Date.now()
   const latency = endTime - startTime
-  const payloadSize = c.req.header('content-length') || '0'
+  const payloadSizeHeader = c.req.header('content-length') || '0'
+  const payloadSizeBytes = Number.parseInt(payloadSizeHeader, 10) || 0
+  const logEntry = {
+    level: 'info' as const,
+    message: `[route] ${c.req.method} ${c.req.path}`,
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    latency,
+    payloadSizeBytes,
+    correlationId,
+    timestamp: new Date().toISOString(),
+  }
 
   console.log(
     JSON.stringify({
-      level: 'info',
-      message: `[route] ${c.req.method} ${c.req.path}`,
-      method: c.req.method,
-      path: c.req.path,
-      status: c.res.status,
+      ...logEntry,
       latency: `${latency}ms`,
-      payloadSize: `${payloadSize} bytes`,
-      correlationId,
-      timestamp: new Date().toISOString(),
+      payloadSize: `${payloadSizeBytes} bytes`,
     })
   )
+
+  try {
+    await c.env.CORE_GITHUB_API.prepare(
+      `INSERT INTO request_logs (
+        timestamp,
+        level,
+        message,
+        method,
+        path,
+        status,
+        latency_ms,
+        payload_size_bytes,
+        correlation_id,
+        metadata
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        logEntry.timestamp,
+        logEntry.level,
+        logEntry.message,
+        logEntry.method,
+        logEntry.path,
+        logEntry.status,
+        logEntry.latency,
+        logEntry.payloadSizeBytes,
+        logEntry.correlationId,
+        JSON.stringify({
+          userAgent: c.req.header('user-agent') || null,
+          referer: c.req.header('referer') || null,
+          host: c.req.header('host') || null,
+        })
+      )
+      .run()
+  } catch (error) {
+    console.error('Failed to persist request log to D1', error)
+  }
 })
+
+const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
+  if (c.req.method === 'OPTIONS') {
+    await next()
+    return
+  }
+
+  const expectedApiKey = c.env.WORKER_API_KEY
+
+  if (!expectedApiKey) {
+    console.error('WORKER_API_KEY is not configured')
+    return c.json({ error: 'Service misconfigured' }, 500)
+  }
+
+  const providedApiKey = c.req.header('x-api-key')
+    || (c.req.header('authorization')?.startsWith('Bearer ')
+      ? c.req.header('authorization')?.slice('Bearer '.length)
+      : undefined)
+
+  if (providedApiKey !== expectedApiKey) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  await next()
+}
+
+app.use('/api/*', requireApiKey)
+app.use('/mcp/*', requireApiKey)
+app.use('/a2a/*', requireApiKey)
 
 
 // --- 2. Route Definitions ---
