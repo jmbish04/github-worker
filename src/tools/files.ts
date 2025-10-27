@@ -40,6 +40,40 @@ const UpsertFileResponseSchema = z.object({
   }),
 })
 
+const ListRepoTreeRequestSchema = z.object({
+  owner: z.string().openapi({ example: 'octocat' }),
+  repo: z.string().openapi({ example: 'Hello-World' }),
+  ref: z
+    .string()
+    .optional()
+    .openapi({ example: 'main', description: 'Git reference (branch, tag, or commit SHA). Defaults to HEAD.' }),
+  path: z
+    .string()
+    .optional()
+    .openapi({ example: 'src', description: 'Restrict the listing to a specific directory path.' }),
+  recursive: z
+    .boolean()
+    .optional()
+    .openapi({ example: true, description: 'When true, retrieves the full tree recursively.' }),
+})
+
+const TreeEntrySchema = z.object({
+  path: z.string(),
+  type: z.string(),
+  mode: z.string(),
+  sha: z.string(),
+  size: z.number().nullable(),
+  url: z.string().url().nullable(),
+  depth: z.number().int().min(0),
+  displayPath: z.string(),
+})
+
+const ListRepoTreeResponseSchema = z.object({
+  entries: z.array(TreeEntrySchema),
+  listing: z.string(),
+  truncated: z.boolean(),
+})
+
 // --- 2. Route Definition ---
 
 const upsertFileRoute = createRoute({
@@ -107,6 +141,129 @@ files.openapi(upsertFileRoute, async (c) => {
   }
 
   return c.json(response)
+})
+
+const listRepoTreeRoute = createRoute({
+  method: 'post',
+  path: '/files/tree',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: ListRepoTreeRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ListRepoTreeResponseSchema,
+        },
+      },
+      description: 'Repository tree retrieved successfully.',
+    },
+  },
+  'x-agent': true,
+  description: 'List repository contents with an ls-style tree representation.',
+})
+
+files.openapi(listRepoTreeRoute, async (c) => {
+  const { owner, repo, ref, path, recursive } = c.req.valid('json')
+  const octokit = getOctokit(c.env)
+
+  const treeSha = ref ?? 'HEAD'
+  const recursiveFlag = recursive ?? true
+
+  const { data } = await octokit.git.getTree({
+    owner,
+    repo,
+    tree_sha: treeSha,
+    recursive: recursiveFlag ? '1' : undefined,
+  })
+
+  const normalizedPath = path?.replace(/^\/+|\/+$/g, '')
+
+  const filteredTree = normalizedPath
+    ? data.tree.filter((entry) => {
+        if (!entry.path) {
+          return false
+        }
+
+        return entry.path === normalizedPath || entry.path.startsWith(`${normalizedPath}/`)
+      })
+    : data.tree
+
+  const sortedEntries = [...filteredTree].sort((a, b) => {
+    const pathA = a.path ?? ''
+    const pathB = b.path ?? ''
+    return pathA.localeCompare(pathB)
+  })
+
+  const formattedEntries = sortedEntries.map((entry) => {
+    const pathValue = entry.path ?? ''
+    const segments = (() => {
+      if (!pathValue) {
+        return [] as string[]
+      }
+
+      if (!normalizedPath) {
+        return pathValue.split('/').filter(Boolean)
+      }
+
+      if (pathValue === normalizedPath) {
+        return [] as string[]
+      }
+
+      if (pathValue.startsWith(`${normalizedPath}/`)) {
+        return pathValue
+          .slice(normalizedPath.length + 1)
+          .split('/')
+          .filter(Boolean)
+      }
+
+      return pathValue.split('/').filter(Boolean)
+    })()
+
+    const relativeDepth = normalizedPath
+      ? segments.length
+      : Math.max(0, segments.length - 1)
+
+    const indent = '  '.repeat(relativeDepth)
+    const suffix = entry.type === 'tree' ? '/' : ''
+
+    const displayPath = normalizedPath && pathValue === normalizedPath
+      ? './'
+      : segments.length === 0
+        ? (pathValue || './') + suffix
+        : `${indent}${segments[segments.length - 1]}${suffix}`
+
+    return {
+      path: pathValue,
+      type: entry.type ?? 'blob',
+      mode: entry.mode ?? '',
+      sha: entry.sha ?? '',
+      size: typeof entry.size === 'number' ? entry.size : null,
+      url: entry.url ?? null,
+      depth: relativeDepth,
+      displayPath,
+    }
+  })
+
+  const header = 'MODE     TYPE   SIZE      SHA                                      PATH'
+  const listingLines = formattedEntries.map((entry) => {
+    const sizeValue = entry.size === null ? '-' : entry.size.toString()
+    return `${entry.mode.padEnd(8)} ${entry.type.padEnd(5)} ${sizeValue.padStart(8)} ${entry.sha} ${entry.displayPath}`
+  })
+
+  const listing = [header, ...listingLines].join('\n')
+
+  return c.json({
+    entries: formattedEntries,
+    listing,
+    truncated: data.truncated ?? false,
+  })
 })
 
 export default files
